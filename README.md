@@ -1,13 +1,13 @@
 # Color-Sorter CLI
 
-A modular Python tool that automatically organizes images (JPG or RAW) into "buckets" based on their dominant color palettes. The tool is designed to be format-agnostic, allowing for efficient sorting of pre-rendered JPGs or high-fidelity RAW files with sidecar edits.
+A modular Python tool that automatically organizes images (JPG or RAW) into "buckets" based on their visual characteristics. The tool is designed to be format-agnostic, allowing for efficient sorting of pre-rendered JPGs or high-fidelity RAW files with sidecar edits.
 
 ## Features
 
 - **Dual-Format Support**: Seamlessly switch between processing standard JPG/JPEG images and professional RAW formats (ARW, CR2, NEF, DNG).
 - **XMP-Aware RAW Rendering**: For RAW files, the tool respects `.xmp` sidecar edits by attempting to render them via a tiered pipeline before analysis.
 - **Perceptual Color Analysis**: Converts images to CIELAB color space for accurate visual distance calculations.
-- **Automated Clustering**: Uses K-Means and Agglomerative Clustering to group images with similar palettes.
+- **Automated Clustering**: Uses K-Means and Agglomerative Clustering to group images with similar palettes or structures.
 - **Modular Architecture**: A decoupled framework separates the sorting logic (feature extraction and clustering) from the image ingestion layer.
 - **High Performance**: Utilizes multiprocessing for parallel image loading and analysis.
 
@@ -41,21 +41,61 @@ To ensure that `.xmp` sidecar edits are fully applied during RAW analysis, it is
    pip install -r requirements.txt
    ```
 
+## Sorting Methods
+
+The tool provides several specialized sorters, each using a different feature extraction and clustering strategy:
+
+### 1. K-Means Palette Sorter (`k-means_sorter.py`)
+- **Method**: Extracts the top $K$ dominant colors from each image in CIELAB space using MiniBatchKMeans.
+- **Best For**: Grouping images by their primary color schemes (e.g., "all the blue-toned photos").
+- **Feature**: Creates a feature vector of the most frequent dominant colors.
+
+### 2. Histogram Sorter (`histogram_sorter.py`)
+- **Method**: Computes normalized color histograms for Hue, Saturation, and Value (HSV) channels.
+- **Best For**: Grouping images with similar overall color distributions, regardless of where the colors are located.
+- **Feature**: Uses Cosine similarity via Agglomerative Clustering for high-accuracy distribution matching.
+
+### 3. Exposure Sorter (`exposure_sorter.py`)
+- **Method**: Analyzes the Luminance (L) channel of the LAB color space to calculate mean brightness and standard deviation.
+- **Best For**: Sorting by lighting conditions (e.g., Night, Golden Hour, Daytime, Overexposed).
+- **Feature**: Specifically targets exposure and contrast profiles.
+
+### 4. Perceptual Hash Sorter (`hash_sorter.py`)
+- **Method**: Generates a visual "fingerprint" of the image using one of three hashing algorithms:
+  - **aHash (Average Hash)**: Fast, based on average pixel intensity.
+  - **dHash (Difference Hash)**: Tracks gradients between adjacent pixels.
+  - **pHash (Perceptual Hash)**: Uses Discrete Cosine Transform (DCT) to focus on low-frequency structures.
+- **Best For**: Finding near-duplicate images or images with very similar compositions.
+- **Feature**: Uses Hamming Distance to cluster binary hashes.
+
+### 5. CV Feature Sorter (`cv_feature_sorter.py`)
+- **Method**: A composite approach combining multiple computer vision metrics:
+  - **ORB Spatial Grid**: Distribution of keypoints across the image.
+  - **HSV Histogram**: General color distribution.
+  - **Laplacian Variance**: Measure of image sharpness/blur.
+  - **Canny Edge Density**: Measure of geometric complexity.
+- **Best For**: Complex sorting based on a mix of texture, sharpness, and color.
+- **Feature**: Uses a `ScalingKMeansClusterer` to standardize diverse feature scales.
+
+## Modularity & Expansion
+
+The tool is built on a modular framework (`framework.py`) that allows developers to easily add new sorting strategies without modifying the core orchestration logic.
+
+### The Framework Architecture
+The `SortingFramework` class requires three components:
+1. **`BaseImageLoader`**: Handles how images are read (e.g., `JPGLoader`, `RAWLoader`).
+2. **`BaseFeatureExtractor`**: Defines how to turn an image into a numerical vector (the "what" of the sort).
+3. **`BaseClusterer`**: Defines how to group those vectors into buckets (the "how" of the sort).
+
+### How to Expand
+To create a new sorter:
+1. **Implement a new `BaseFeatureExtractor`**: Define the `extract()` method to return a numpy array.
+2. **Implement a new `BaseClusterer`** (Optional): If the existing `KMeansClusterer` or `AgglomerativeClusterer` doesn't fit your needs.
+3. **Create a CLI script**: Use the `run_sorting_pipeline` helper from `framework.py` to connect your extractor and clusterer to the CLI.
+
 ## Usage
 
 The tool is executed via the command line. It supports a flexible ingestion system with sensible defaults.
-
-### Basic Command (JPG Mode)
-By default, the tool looks for JPG images in `./jpg_storage`.
-```bash
-python k-means_cluster.py
-```
-
-### RAW Mode
-To process RAW files (defaulting to `./raw_storage`), use the `--raw` flag.
-```bash
-python k-means_cluster.py --raw
-```
 
 ### Common Options
 
@@ -63,40 +103,34 @@ python k-means_cluster.py --raw
 | :--- | :--- | :--- | :--- |
 | `--input` | `-i` | `./jpg_storage` or `./raw_storage` | Path to directory containing images. |
 | `--output-dir` | | `./output_buckets` | Directory where sorted buckets will be created. |
-| `--colors` | `-k` | `3` | Number of dominant colors to extract per image. |
-| `--clusters` | | `None` | Force a specific number of target buckets. |
-| `--threshold` | | `50.0` | Distance threshold for clustering (used if `--clusters` is not set). |
 | `--move` | | `False` | Delete source files after they have been copied to buckets. |
 | `--raw` | | `False` | Process RAW files instead of JPGs. |
 | `--verbose` | `-v` | `False` | Enable debug logging. |
 
-### Examples
+### Examples & Testing
 
-**Sort JPGs from a custom directory into buckets:**
+You can test the different sorting methods using the following commands:
+
+**Sort by dominant color palettes (K-Means):**
 ```bash
-python k-means_cluster.py -i ./my_vacation_jpgs
+python3 k-means_sorter.py --input ./jpg_storage --output-dir ./output_k-means_test -k 2
 ```
 
-**Sort RAW files from default storage and move them to buckets:**
+**Sort by color distribution (Histogram):**
 ```bash
-python k-means_cluster.py --raw --move
+python3 histogram_sorter.py --input ./jpg_storage --output-dir ./output_histogram_test --threshold 0.45
 ```
 
-**Force exactly 5 buckets, analyzing 5 dominant colors per image:**
+**Sort by lighting/exposure:**
 ```bash
-python k-means_cluster.py --raw -k 5 --clusters 5
+python3 exposure_sorter.py --input ./jpg_storage --output-dir ./output_exposure_test -c 8
 ```
 
-## How it Works
+**Sort by visual structure (Perceptual Hashing - pHash):**
+```bash
+python3 hash_sorter.py --input ./jpg_storage --method phash --output-dir ./output_phash_test --threshold 0.45
+```
 
-1. **Modular Ingestion**: 
-   - The CLI selects a `Loader` based on the format (JPG or RAW).
-   - **JPGLoader**: Directly reads images using OpenCV.
-   - **RAWLoader**: Uses a rendering pipeline (`darktable-cli` $\rightarrow$ `rawpy` thumbnail $\rightarrow$ `rawpy` demosaic) to create a temporary RGB representation, respecting XMP sidecars.
-2. **Downscaling**: Images are resized to 400px on the long edge to optimize processing speed.
-3. **Color Extraction**: 
-   - Pixels are converted from sRGB to **CIELAB** space.
-   - **K-Means clustering** is performed on each image to find the $K$ most dominant colors.
-   - A feature vector is created from these centroids, ordered by pixel frequency.
-4. **Global Clustering**: The feature vectors of all images are clustered using **Agglomerative Clustering** (or KMeans), grouping images with similar overall palettes.
-5. **Organization**: Files (and their associated sidecars) are copied into folders named by their cluster ID and a human-readable color family (e.g., `bucket_0_warm_gold`).
+**Sort by composite CV features:**
+```bash
+python3 cv_feature_sorter.py --input ./jpg_storage --output-dir ./output_cv_test -c 8
