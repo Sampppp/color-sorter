@@ -57,7 +57,6 @@ class HistogramExtractor(BaseFeatureExtractor):
 
 # --- CLI Implementation ---
 @click.command()
-@common_options(default_output_dir='./output_histograms')
 @click.option('--bins', '-b', default=DEFAULT_BINS, type=int, help='Number of bins per HSV channel.')
 @click.option('--threshold', type=float, default=0.5, help='Distance threshold for Agglomerative Clustering.')
 def main(input_dir, output_dir, move, raw, verbose, bins, threshold):

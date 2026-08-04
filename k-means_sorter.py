@@ -79,7 +79,6 @@ class DominantColorExtractor(BaseFeatureExtractor):
 
 # --- CLI Implementation ---
 @click.command()
-@common_options(default_output_dir='./output_buckets')
 @click.option('--colors', '-k', default=DEFAULT_K_COLORS, type=int, help='Number of dominant colors per image.')
 @click.option('--clusters', type=int, help='Number of target buckets. If not provided, AgglomerativeClustering with threshold is used.')
 @click.option('--threshold', type=float, default=50.0, help='Distance threshold for clustering if --clusters is not provided.')

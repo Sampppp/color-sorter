@@ -102,7 +102,6 @@ class HammingClusterer(BaseClusterer):
 
 # --- CLI Implementation ---
 @click.command()
-@common_options(default_output_dir='./output_hash_buckets')
 @click.option('--method', type=click.Choice(['ahash', 'dhash', 'phash'], case_sensitive=False), 
               required=True, help='Hashing method to use.')
 @click.option('--threshold', type=float, default=0.1, help='Hamming distance threshold for clustering (0.0 to 1.0).')
