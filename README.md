@@ -1,14 +1,15 @@
-# RAW Image Palette Clustering CLI
+# Color-Sorter CLI
 
-A standalone Python tool that automatically organizes RAW photography files (`.arw`) into "buckets" based on their dominant color palettes. It respects `.xmp` sidecar edits by attempting to render them before analysis.
+A modular Python tool that automatically organizes images (JPG or RAW) into "buckets" based on their dominant color palettes. The tool is designed to be format-agnostic, allowing for efficient sorting of pre-rendered JPGs or high-fidelity RAW files with sidecar edits.
 
 ## Features
 
-- **XMP-Aware Rendering**: Uses a tiered pipeline to ensure edits are reflected in the color analysis.
+- **Dual-Format Support**: Seamlessly switch between processing standard JPG/JPEG images and professional RAW formats (ARW, CR2, NEF, DNG).
+- **XMP-Aware RAW Rendering**: For RAW files, the tool respects `.xmp` sidecar edits by attempting to render them via a tiered pipeline before analysis.
 - **Perceptual Color Analysis**: Converts images to CIELAB color space for accurate visual distance calculations.
 - **Automated Clustering**: Uses K-Means and Agglomerative Clustering to group images with similar palettes.
-- **Sidecar Pairing**: Ensures `.arw` and `.xmp` files always stay together during organization.
-- **High Performance**: Utilizes multiprocessing for parallel RAW parsing and analysis.
+- **Modular Architecture**: A decoupled framework separates the sorting logic (feature extraction and clustering) from the image ingestion layer.
+- **High Performance**: Utilizes multiprocessing for parallel image loading and analysis.
 
 ## Prerequisites
 
@@ -16,8 +17,8 @@ A standalone Python tool that automatically organizes RAW photography files (`.a
 - **Python 3.10+**
 - **Operating System**: Linux, macOS, or Windows.
 
-### Optional Dependencies (for High Fidelity)
-To ensure that `.xmp` sidecar edits are fully applied during the analysis, it is highly recommended to install **darktable**. The script will automatically detect `darktable-cli` and use it for rendering.
+### Optional Dependencies (for RAW High Fidelity)
+To ensure that `.xmp` sidecar edits are fully applied during RAW analysis, it is highly recommended to install **darktable**. The script will automatically detect `darktable-cli` and use it for rendering.
 
 - **Linux**: `sudo apt install darktable`
 - **macOS**: `brew install darktable`
@@ -42,43 +43,60 @@ To ensure that `.xmp` sidecar edits are fully applied during the analysis, it is
 
 ## Usage
 
-The tool is executed via the command line. Basic usage requires an input directory.
+The tool is executed via the command line. It supports a flexible ingestion system with sensible defaults.
 
-### Basic Command
+### Basic Command (JPG Mode)
+By default, the tool looks for JPG images in `./jpg_storage`.
 ```bash
-python sort_by_palette.py --input /path/to/your/photos
+python k-means_cluster.py
+```
+
+### RAW Mode
+To process RAW files (defaulting to `./raw_storage`), use the `--raw` flag.
+```bash
+python k-means_cluster.py --raw
 ```
 
 ### Common Options
 
 | Option | Short | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `--input` | `-i` | (Required) | Path to directory containing `.arw` and `.xmp` files. |
+| `--input` | `-i` | `./jpg_storage` or `./raw_storage` | Path to directory containing images. |
 | `--output-dir` | | `./output_buckets` | Directory where sorted buckets will be created. |
 | `--colors` | `-k` | `3` | Number of dominant colors to extract per image. |
 | `--clusters` | | `None` | Force a specific number of target buckets. |
 | `--threshold` | | `50.0` | Distance threshold for clustering (used if `--clusters` is not set). |
-| `--copy` | | `False` | Copy files instead of moving them (safer for testing). |
+| `--move` | | `False` | Delete source files after they have been copied to buckets. |
+| `--raw` | | `False` | Process RAW files instead of JPGs. |
+| `--verbose` | `-v` | `False` | Enable debug logging. |
 
 ### Examples
 
-**Copy photos into buckets based on automatic thresholding:**
+**Sort JPGs from a custom directory into buckets:**
 ```bash
-python sort_by_palette.py -i ./my_raws --copy
+python k-means_cluster.py -i ./my_vacation_jpgs
 ```
 
-**Move photos into exactly 5 buckets, analyzing 5 dominant colors per image:**
+**Sort RAW files from default storage and move them to buckets:**
 ```bash
-python sort_by_palette.py -i ./my_raws -k 5 --clusters 5
+python k-means_cluster.py --raw --move
+```
+
+**Force exactly 5 buckets, analyzing 5 dominant colors per image:**
+```bash
+python k-means_cluster.py --raw -k 5 --clusters 5
 ```
 
 ## How it Works
 
-1. **Rendering**: The script looks for `.arw` files. It attempts to render them using `darktable-cli` (applying XMP edits), then falls back to `rawpy`'s embedded preview, and finally to basic demosaicing.
+1. **Modular Ingestion**: 
+   - The CLI selects a `Loader` based on the format (JPG or RAW).
+   - **JPGLoader**: Directly reads images using OpenCV.
+   - **RAWLoader**: Uses a rendering pipeline (`darktable-cli` $\rightarrow$ `rawpy` thumbnail $\rightarrow$ `rawpy` demosaic) to create a temporary RGB representation, respecting XMP sidecars.
 2. **Downscaling**: Images are resized to 400px on the long edge to optimize processing speed.
 3. **Color Extraction**: 
    - Pixels are converted from sRGB to **CIELAB** space.
    - **K-Means clustering** is performed on each image to find the $K$ most dominant colors.
    - A feature vector is created from these centroids, ordered by pixel frequency.
 4. **Global Clustering**: The feature vectors of all images are clustered using **Agglomerative Clustering** (or KMeans), grouping images with similar overall palettes.
-5. **Organization**: Files are moved/copied into folders named by their cluster ID and a human-readable color family (e.g., `bucket_0_warm_gold`).
+5. **Organization**: Files (and their associated sidecars) are copied into folders named by their cluster ID and a human-readable color family (e.g., `bucket_0_warm_gold`).

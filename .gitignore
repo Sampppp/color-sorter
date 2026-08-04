@@ -1,1 +1,5 @@
 venv
+raw_storage
+jpg_storage
+output_buckets
+__pycache__
