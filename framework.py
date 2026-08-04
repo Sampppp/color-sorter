@@ -13,12 +13,24 @@ from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+import click
 
 # --- Constants ---
 MAX_ANALYSIS_SIZE = 400  # Max long edge for color analysis
+RAW_EXTENSIONS = {".ARW", ".arw", ".CR2", ".cr2", ".NEF", ".nef", ".DNG", ".dng"}
+JPG_EXTENSIONS = {".JPG", ".jpg", ".JPEG", ".jpeg"}
 
 # --- Logging Setup ---
 logger = logging.getLogger("color-sorter")
+
+def setup_logging(verbose: bool):
+    """Configures global logging based on verbosity."""
+    log_level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
 # --- Data Models ---
 
@@ -262,3 +274,86 @@ class SortingFramework:
                     tqdm.write(f"Warning: Could not delete {f}: {e}")
 
         return valid_sources, summary
+
+# --- CLI Helpers ---
+
+def common_options(default_output_dir: str):
+    """Decorator to add common CLI options to sorter scripts."""
+    def decorator(f):
+        f = click.option('--input', '-i', 'input_dir', type=click.Path(exists=True), help='Input directory containing images.')(f)
+        f = click.option('--output-dir', default=default_output_dir, help='Output directory for sorted buckets.')(f)
+        f = click.option('--move', is_flag=True, default=False, help='Remove input files after they have been copied to buckets.')(f)
+        f = click.option('--raw', is_flag=True, default=False, help='Process RAW files instead of JPGs.')(f)
+        f = click.option('--verbose', '-v', is_flag=True, default=False, help='Enable debug logging.')(f)
+        return f
+    return decorator
+
+def ingest_images(input_path: Path, raw: bool) -> Tuple[List[ImageSource], BaseImageLoader]:
+    """Scans directory for images and returns ImageSource list and appropriate loader."""
+    sources = []
+    if raw:
+        logger.info(f"Scanning for RAW files in {input_path}...")
+        raw_files = [f for f in input_path.iterdir() if f.suffix in RAW_EXTENSIONS]
+        for f in raw_files:
+            xmp = f.with_suffix(".xmp")
+            sidecars = [xmp] if xmp.exists() else []
+            xmp_upper = f.with_suffix(".XMP")
+            if xmp_upper.exists() and xmp_upper not in sidecars:
+                sidecars.append(xmp_upper)
+            sources.append(ImageSource(path=f, sidecars=sidecars))
+        return sources, RAWLoader()
+    else:
+        logger.info(f"Scanning for JPG files in {input_path}...")
+        jpg_files = [f for f in input_path.iterdir() if f.suffix in JPG_EXTENSIONS]
+        for f in jpg_files:
+            sources.append(ImageSource(path=f))
+        return sources, JPGLoader()
+
+def print_summary(summary: Dict[str, int], total_processed: int, title: str = "Sorting Summary"):
+    """Prints a formatted summary of the sorting results."""
+    logger.info(f"\n--- {title} ---")
+    logger.info(f"Total images processed: {total_processed}")
+    logger.info(f"Buckets created: {len(summary)}")
+    for bucket, count in summary.items():
+        logger.info(f"{bucket}: {count} files")
+    logger.info("-----------------------")
+
+def run_sorting_pipeline(
+    input_dir: Optional[str], 
+    output_dir: str, 
+    move: bool, 
+    raw: bool, 
+    verbose: bool, 
+    extractor: BaseFeatureExtractor, 
+    clusterer: BaseClusterer, 
+    title: str = "Sorting Summary"
+):
+    """Encapsulates the common sorting workflow."""
+    setup_logging(verbose)
+    
+    if not input_dir:
+        input_dir = './raw_storage' if raw else './jpg_storage'
+    
+    input_path = Path(input_dir)
+    output_path = Path(output_dir)
+    
+    if not input_path.exists():
+        logger.error(f"Input directory does not exist: {input_path}")
+        return
+
+    sources, loader = ingest_images(input_path, raw)
+    
+    if not sources:
+        logger.warning(f"No suitable images found in {input_path}.")
+        return
+
+    logger.info(f"Found {len(sources)} images. Starting analysis...")
+
+    framework = SortingFramework(loader, extractor, clusterer)
+    
+    try:
+        valid_sources, summary = framework.analyze_and_sort(sources, output_path, move=move)
+        if valid_sources:
+            print_summary(summary, len(valid_sources), title)
+    except Exception as e:
+        logger.error(f"An error occurred during sorting: {e}")

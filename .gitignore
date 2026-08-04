@@ -1,5 +1,5 @@
 venv
 raw_storage
 jpg_storage
-output_buckets
+output*
 __pycache__

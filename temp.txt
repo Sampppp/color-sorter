@@ -1,0 +1,5 @@
+python3 k-means_sorter.py --input ./jpg_storage --output-dir ./output_k-means_test -k 2
+
+python3 hash_sorter.py --input ./jpg_storage --method ahash --output-dir ./output_ahash_test --threshold 0.4
+python3 hash_sorter.py --input ./jpg_storage --method dhash --output-dir ./output_dhash_test --threshold 0.45
+python3 hash_sorter.py --input ./jpg_storage --method phash --output-dir ./output_phash_test --threshold 0.45

@@ -6,17 +6,11 @@ import multiprocessing as mp
 from pathlib import Path
 from sklearn.cluster import AgglomerativeClustering
 from framework import (
-    SortingFramework, 
     BaseFeatureExtractor, 
     BaseClusterer, 
-    ImageSource,
-    JPGLoader,
-    RAWLoader
+    common_options,
+    run_sorting_pipeline
 )
-
-# --- Constants ---
-RAW_EXTENSIONS = {".ARW", ".arw", ".CR2", ".cr2", ".NEF", ".nef", ".DNG", ".dng"}
-JPG_EXTENSIONS = {".JPG", ".jpg", ".JPEG", ".jpeg"}
 
 # --- Logging Setup ---
 logger = logging.getLogger("hash-sorter")
@@ -108,60 +102,13 @@ class HammingClusterer(BaseClusterer):
 
 # --- CLI Implementation ---
 @click.command()
-@click.option('--input', '-i', 'input_dir', type=click.Path(exists=True), help='Input directory containing images.')
-@click.option('--output-dir', default='./output_hash_buckets', help='Output directory for sorted buckets.')
+@common_options(default_output_dir='./output_hash_buckets')
 @click.option('--method', type=click.Choice(['ahash', 'dhash', 'phash'], case_sensitive=False), 
               required=True, help='Hashing method to use.')
 @click.option('--threshold', type=float, default=0.1, help='Hamming distance threshold for clustering (0.0 to 1.0).')
-@click.option('--move', is_flag=True, default=False, help='Remove input files after they have been copied to buckets.')
-@click.option('--raw', is_flag=True, default=False, help='Process RAW files instead of JPGs.')
-@click.option('--verbose', '-v', is_flag=True, default=False, help='Enable debug logging.')
-def main(input_dir, output_dir, method, threshold, move, raw, verbose):
+def main(input_dir, output_dir, move, raw, verbose, method, threshold):
     """Sort images based on visual structure using perceptual hashing."""
-    log_level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
     
-    # Default input directory if not provided
-    if not input_dir:
-        input_dir = './raw_storage' if raw else './jpg_storage'
-    
-    input_path = Path(input_dir)
-    output_path = Path(output_dir)
-    
-    if not input_path.exists():
-        logger.error(f"Input directory does not exist: {input_path}")
-        return
-
-    # Ingestion Logic
-    sources = []
-    if raw:
-        logger.info(f"Scanning for RAW files in {input_path}...")
-        raw_files = [f for f in input_path.iterdir() if f.suffix in RAW_EXTENSIONS]
-        for f in raw_files:
-            xmp = f.with_suffix(".xmp")
-            sidecars = [xmp] if xmp.exists() else []
-            xmp_upper = f.with_suffix(".XMP")
-            if xmp_upper.exists() and xmp_upper not in sidecars:
-                sidecars.append(xmp_upper)
-            sources.append(ImageSource(path=f, sidecars=sidecars))
-        loader = RAWLoader()
-    else:
-        logger.info(f"Scanning for JPG files in {input_path}...")
-        jpg_files = [f for f in input_path.iterdir() if f.suffix in JPG_EXTENSIONS]
-        for f in jpg_files:
-            sources.append(ImageSource(path=f))
-        loader = JPGLoader()
-
-    if not sources:
-        logger.warning(f"No suitable images found in {input_path}.")
-        return
-
-    logger.info(f"Found {len(sources)} images. Starting analysis using {method}...")
-
     # Strategy Selection
     method = method.lower()
     if method == 'ahash':
@@ -173,20 +120,16 @@ def main(input_dir, output_dir, method, threshold, move, raw, verbose):
     
     clusterer = HammingClusterer(threshold=threshold)
 
-    framework = SortingFramework(loader, extractor, clusterer)
-    
-    try:
-        valid_sources, summary = framework.analyze_and_sort(sources, output_path, move=move)
-        
-        if valid_sources:
-            logger.info("\n--- Hash Sorting Summary ---")
-            logger.info(f"Total images processed: {len(valid_sources)}")
-            logger.info(f"Buckets created: {len(summary)}")
-            for bucket, count in summary.items():
-                logger.info(f"{bucket}: {count} files")
-            logger.info("---------------------------")
-    except Exception as e:
-        logger.error(f"An error occurred during sorting: {e}")
+    run_sorting_pipeline(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        move=move,
+        raw=raw,
+        verbose=verbose,
+        extractor=extractor,
+        clusterer=clusterer,
+        title="Hash Sorting Summary"
+    )
 
 if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
