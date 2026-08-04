@@ -14,6 +14,7 @@ from typing import List, Tuple, Optional, Dict
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import click
+from sklearn.cluster import KMeans, AgglomerativeClustering
 
 # --- Constants ---
 MAX_ANALYSIS_SIZE = 400  # Max long edge for color analysis
@@ -156,6 +157,13 @@ class BaseFeatureExtractor(ABC):
         """Extract a feature vector from the image."""
         pass
 
+    def get_centroid_name(self, centroid: np.ndarray) -> str:
+        """
+        Return a human-readable name for the centroid. 
+        Can be overridden by specific extractors to provide meaningful bucket names.
+        """
+        return "feature"
+
 class BaseClusterer(ABC):
     """Abstract base class for clustering feature vectors into buckets."""
     @abstractmethod
@@ -166,6 +174,44 @@ class BaseClusterer(ABC):
         centroids: array of representative feature vectors for each cluster.
         """
         pass
+
+# --- Shared Clusterer Implementations ---
+
+class KMeansClusterer(BaseClusterer):
+    """Clusters images using K-Means."""
+    def __init__(self, n_clusters: int):
+        self.n_clusters = n_clusters
+
+    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        model = KMeans(n_clusters=self.n_clusters, n_init=10, random_state=42)
+        labels = model.fit_predict(features)
+        return labels, model.cluster_centers_
+
+class AgglomerativeClusterer(BaseClusterer):
+    """Clusters images using Agglomerative Clustering."""
+    def __init__(self, threshold: float, metric: str = 'euclidean'):
+        self.threshold = threshold
+        self.metric = metric
+
+    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        # linkage='ward' only supports euclidean. For other metrics, we use 'average' or 'complete'
+        linkage = 'ward' if self.metric == 'euclidean' else 'average'
+        model = AgglomerativeClustering(
+            n_clusters=None, 
+            distance_threshold=self.threshold, 
+            metric=self.metric, 
+            linkage=linkage
+        )
+        labels = model.fit_predict(features)
+        
+        # Calculate centroids manually for AgglomerativeClustering
+        unique_labels = np.unique(labels)
+        centroids = []
+        for label in unique_labels:
+            cluster_points = features[labels == label]
+            centroids.append(np.mean(cluster_points, axis=0))
+        
+        return labels, np.array(centroids)
 
 # --- Orchestration ---
 
@@ -194,7 +240,7 @@ class SortingFramework:
         self.extractor = extractor
         self.clusterer = clusterer
 
-    def analyze_and_sort(self, sources: List[ImageSource], output_path: Path, move: bool = False):
+    def analyze_and_sort(self, sources: List[ImageSource], output_path: Optional[Path], move: bool = False):
         # 1. Parallel Feature Extraction
         loader_class = self.loader.__class__
         extractor_class = self.extractor.__class__
@@ -238,27 +284,31 @@ class SortingFramework:
         logger.info(f"Organizing {len(valid_sources)} images into {len(unique_labels)} buckets...")
         for label in unique_labels:
             centroid = centroids[label]
-            primary_color = centroid[:3]
-            color_name = get_color_name(primary_color)
-            bucket_name = f"bucket_{label}_{color_name}"
-            bucket_dir = output_path / bucket_name
-            bucket_dir.mkdir(parents=True, exist_ok=True)
+            # Use the extractor to determine a human-readable name for the cluster
+            cluster_name = self.extractor.get_centroid_name(centroid)
+            bucket_name = f"bucket_{label}_{cluster_name}"
+            
+            bucket_dir = None
+            if output_path:
+                bucket_dir = output_path / bucket_name
+                bucket_dir.mkdir(parents=True, exist_ok=True)
             
             count = 0
             for i, label_val in enumerate(labels):
                 if label_val == label:
                     source = valid_sources[i]
                     
-                    # Copy primary file
-                    dest_primary = bucket_dir / source.path.name
-                    shutil.copy2(source.path, dest_primary)
-                    copied_files.append(source.path)
-                    
-                    # Copy sidecars
-                    for sidecar in source.sidecars:
-                        dest_sidecar = bucket_dir / sidecar.name
-                        shutil.copy2(sidecar, dest_sidecar)
-                        copied_files.append(sidecar)
+                    if output_path and bucket_dir:
+                        # Copy primary file
+                        dest_primary = bucket_dir / source.path.name
+                        shutil.copy2(source.path, dest_primary)
+                        copied_files.append(source.path)
+                        
+                        # Copy sidecars
+                        for sidecar in source.sidecars:
+                            dest_sidecar = bucket_dir / sidecar.name
+                            shutil.copy2(sidecar, dest_sidecar)
+                            copied_files.append(sidecar)
                     
                     count += 1
             
@@ -277,7 +327,7 @@ class SortingFramework:
 
 # --- CLI Helpers ---
 
-def common_options(default_output_dir: str):
+def common_options(default_output_dir: Optional[str] = None):
     """Decorator to add common CLI options to sorter scripts."""
     def decorator(f):
         f = click.option('--input', '-i', 'input_dir', type=click.Path(exists=True), help='Input directory containing images.')(f)
@@ -320,7 +370,7 @@ def print_summary(summary: Dict[str, int], total_processed: int, title: str = "S
 
 def run_sorting_pipeline(
     input_dir: Optional[str], 
-    output_dir: str, 
+    output_dir: Optional[str], 
     move: bool, 
     raw: bool, 
     verbose: bool, 
@@ -335,7 +385,7 @@ def run_sorting_pipeline(
         input_dir = './raw_storage' if raw else './jpg_storage'
     
     input_path = Path(input_dir)
-    output_path = Path(output_dir)
+    output_path = Path(output_dir) if output_dir else None
     
     if not input_path.exists():
         logger.error(f"Input directory does not exist: {input_path}")

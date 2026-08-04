@@ -4,13 +4,16 @@ import cv2
 import click
 import multiprocessing as mp
 from pathlib import Path
-from sklearn.cluster import KMeans, MiniBatchKMeans, AgglomerativeClustering
+from sklearn.cluster import MiniBatchKMeans
 from framework import (
     BaseFeatureExtractor, 
     BaseClusterer, 
+    KMeansClusterer,
+    AgglomerativeClusterer,
     MAX_ANALYSIS_SIZE,
     common_options,
-    run_sorting_pipeline
+    run_sorting_pipeline,
+    get_color_name
 )
 
 # --- Constants ---
@@ -25,6 +28,11 @@ class DominantColorExtractor(BaseFeatureExtractor):
     """Extracts the top K dominant colors in Lab space as a feature vector."""
     def __init__(self, k_colors: int = DEFAULT_K_COLORS):
         self.k_colors = k_colors
+
+    def get_centroid_name(self, centroid: np.ndarray) -> str:
+        # Centroid is flattened dominant colors. Use the first one for naming.
+        primary_color = centroid[:3]
+        return get_color_name(primary_color)
 
     def extract(self, image: np.ndarray) -> np.ndarray:
         # 1. Fast Resize: Only resize if significantly larger than analysis size
@@ -68,33 +76,6 @@ class DominantColorExtractor(BaseFeatureExtractor):
         
         return dominant_colors.flatten()
 
-class KMeansClusterer(BaseClusterer):
-    """Clusters images using K-Means."""
-    def __init__(self, n_clusters: int):
-        self.n_clusters = n_clusters
-
-    def cluster(self, features: np.ndarray):
-        model = KMeans(n_clusters=self.n_clusters, n_init=10, random_state=42)
-        labels = model.fit_predict(features)
-        return labels, model.cluster_centers_
-
-class AgglomerativeClusterer(BaseClusterer):
-    """Clusters images using Agglomerative Clustering."""
-    def __init__(self, threshold: float):
-        self.threshold = threshold
-
-    def cluster(self, features: np.ndarray):
-        model = AgglomerativeClustering(n_clusters=None, distance_threshold=self.threshold)
-        labels = model.fit_predict(features)
-        
-        # Calculate centroids manually for AgglomerativeClustering
-        unique_labels = np.unique(labels)
-        centroids = []
-        for label in unique_labels:
-            cluster_points = features[labels == label]
-            centroids.append(np.mean(cluster_points, axis=0))
-        
-        return labels, np.array(centroids)
 
 # --- CLI Implementation ---
 @click.command()
