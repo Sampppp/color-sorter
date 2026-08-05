@@ -55,6 +55,7 @@ class ExposureExtractor(BaseFeatureExtractor):
 
 # --- CLI Implementation ---
 @click.command()
+@common_options()
 @click.option('--clusters', '-c', default=DEFAULT_CLUSTERS, type=int, help='Number of lighting categories (e.g., Day, Golden Hour, Low Light, Night).')
 def main(input_dir, output_dir, move, raw, verbose, clusters):
     """Sort images by their lighting conditions and exposure profiling."""
