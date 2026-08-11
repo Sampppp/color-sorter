@@ -24,6 +24,7 @@ from cv_feature_sorter import CVFeatureExtractor, ScalingKMeansClusterer
 from exposure_sorter import ExposureExtractor
 from hash_sorter import AHashExtractor, DHashExtractor, PHashExtractor, HammingClusterer
 from histogram_sorter import HistogramExtractor
+from histogram_sorter_3d import Histogram3DExtractor
 
 class SorterRegistry:
     """Registry to map sorter names to their respective components."""
@@ -34,6 +35,7 @@ class SorterRegistry:
         "cv_feature": (CVFeatureExtractor, ScalingKMeansClusterer),
         "exposure": (ExposureExtractor, KMeansClusterer),
         "histogram": (HistogramExtractor, AgglomerativeClusterer),
+        "histogram_3d": (Histogram3DExtractor, AgglomerativeClusterer),
         "hash_ahash": (AHashExtractor, HammingClusterer),
         "hash_dhash": (DHashExtractor, HammingClusterer),
         "hash_phash": (PHashExtractor, HammingClusterer),

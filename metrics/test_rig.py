@@ -27,6 +27,10 @@ EXPERIMENTS = {
         "bins": [8, 16],
         "threshold": [0.1, 0.3, 0.5, 0.7, 0.9]
     },
+    "histogram_3d": {
+        "bins": [8, 16],
+        "threshold": [0.1, 0.3, 0.5, 0.7, 0.9]
+    },
     "hash_ahash": {
         "threshold": [0.1, 0.3, 0.5, 0.7, 0.9]
     },
