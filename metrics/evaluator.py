@@ -25,6 +25,7 @@ from exposure_sorter import ExposureExtractor
 from hash_sorter import AHashExtractor, DHashExtractor, PHashExtractor, HammingClusterer
 from histogram_sorter import HistogramExtractor
 from histogram_sorter_3d import Histogram3DExtractor
+from histogram_experiment_sorter import HistogramExperimentExtractor, DistanceMatrixClusterer
 
 class SorterRegistry:
     """Registry to map sorter names to their respective components."""
@@ -39,6 +40,9 @@ class SorterRegistry:
         "hash_ahash": (AHashExtractor, HammingClusterer),
         "hash_dhash": (DHashExtractor, HammingClusterer),
         "hash_phash": (PHashExtractor, HammingClusterer),
+        "exp_baseline": (HistogramExperimentExtractor, DistanceMatrixClusterer),
+        "exp_perceptual": (HistogramExperimentExtractor, DistanceMatrixClusterer),
+        "exp_spatial": (HistogramExperimentExtractor, DistanceMatrixClusterer),
     }
 
     @classmethod
@@ -72,6 +76,7 @@ def evaluate_sorter(
     if "clusters" in params: clusterer_params["n_clusters"] = params["clusters"]
     if "threshold" in params: clusterer_params["threshold"] = params["threshold"]
     if "metric" in params: clusterer_params["metric"] = params["metric"]
+    if "config" in params: extractor_params["config"] = params["config"]
     
     # Special case for CVFeatureExtractor which might take n_clusters in __init__
     if sorter_name == "cv_feature" and "clusters" in params:

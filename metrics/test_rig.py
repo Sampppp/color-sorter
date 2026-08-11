@@ -39,6 +39,21 @@ EXPERIMENTS = {
     },
     "hash_phash": {
         "threshold": [0.1, 0.3, 0.5, 0.7, 0.9]
+    },
+    "exp_baseline": {
+        "config": ["baseline"],
+        "metric": ["cosine"],
+        "threshold": [0.3, 0.5, 0.7]
+    },
+    "exp_perceptual": {
+        "config": ["perceptual"],
+        "metric": ["chi2"],
+        "threshold": [0.3, 0.5, 0.7]
+    },
+    "exp_spatial": {
+        "config": ["spatial"],
+        "metric": ["jsd"],
+        "threshold": [0.3, 0.5, 0.7]
     }
 }
 
