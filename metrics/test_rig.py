@@ -2,6 +2,7 @@ import csv
 import click
 import itertools
 import sys
+import multiprocessing as mp
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -53,6 +54,14 @@ EXPERIMENTS = {
     "exp_spatial": {
         "config": ["spatial"],
         "metric": ["jsd"],
+        "threshold": [0.3, 0.5, 0.7]
+    },
+    "deep_embeddings": {
+        "metric": ["cosine"],
+        "threshold": [0.3, 0.5, 0.7]
+    },
+    "hybrid_embeddings": {
+        "metric": ["cosine"],
         "threshold": [0.3, 0.5, 0.7]
     }
 }
@@ -137,4 +146,9 @@ def main(input_dir, output_csv, raw, sorters):
     print(f"\nAll experiments complete. Results saved to {output_csv}")
 
 if __name__ == "__main__":
+    # Use 'spawn' to avoid CUDA re-initialization errors in multiprocessing
+    try:
+        mp.set_start_method('spawn', force=True)
+    except RuntimeError:
+        pass
     main()

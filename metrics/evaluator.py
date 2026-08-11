@@ -5,7 +5,10 @@ from typing import List, Dict, Any, Tuple, Optional
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 import sys
+import logging
 from pathlib import Path
+
+logger = logging.getLogger("color-sorter")
 # Add project root to sys.path to allow imports from the root directory
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -26,6 +29,7 @@ from hash_sorter import AHashExtractor, DHashExtractor, PHashExtractor, HammingC
 from histogram_sorter import HistogramExtractor
 from histogram_sorter_3d import Histogram3DExtractor
 from histogram_experiment_sorter import HistogramExperimentExtractor, DistanceMatrixClusterer
+from deep_feature_sorter import DeepFeatureExtractor, HybridFeatureExtractor
 
 class SorterRegistry:
     """Registry to map sorter names to their respective components."""
@@ -43,6 +47,8 @@ class SorterRegistry:
         "exp_baseline": (HistogramExperimentExtractor, DistanceMatrixClusterer),
         "exp_perceptual": (HistogramExperimentExtractor, DistanceMatrixClusterer),
         "exp_spatial": (HistogramExperimentExtractor, DistanceMatrixClusterer),
+        "deep_embeddings": (DeepFeatureExtractor, AgglomerativeClusterer),
+        "hybrid_embeddings": (HybridFeatureExtractor, AgglomerativeClusterer),
     }
 
     @classmethod
@@ -106,24 +112,45 @@ def evaluate_sorter(
     # But we need the labels and features for silhouette/DB scores.
     
     # Re-implementing the core loop for metric extraction
-    from framework import process_single_image_worker
-    from concurrent.futures import ProcessPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor
     from tqdm import tqdm
 
-    loader_class = loader.__class__
-    extractor_class = extractor.__class__
-    loader_params = getattr(loader, '__dict__', {}).copy()
-    extractor_params_inst = getattr(extractor, '__dict__', {}).copy()
+    def load_image(source):
+        try:
+            return loader.load(source)
+        except Exception as e:
+            logger.error(f"Error loading {source.path.name}: {e}")
+            return None
 
-    tasks = [(s, loader_class, loader_params, extractor_class, extractor_params_inst) for s in sources]
-    
     features = []
-    with ProcessPoolExecutor() as executor:
-        results = list(executor.map(process_single_image_worker, tasks))
+    if isinstance(extractor, (DeepFeatureExtractor, HybridFeatureExtractor)):
+        # Use batch processing for deep learning models to leverage GPU
+        batch_size = 32
+        for i in tqdm(range(0, len(sources), batch_size), desc="Extracting Features (Batched)"):
+            batch_sources = sources[i : i + batch_size]
+            batch_images = [img for s in batch_sources if (img := load_image(s)) is not None]
+            
+            if not batch_images:
+                continue
+                
+            try:
+                batch_feats = extractor.extract_batch(batch_images)
+                features.extend(batch_feats)
+            except Exception as e:
+                logger.error(f"Error processing batch starting at {i}: {e}")
+    else:
+        # Use ThreadPoolExecutor for lightweight traditional extractors
+        def thread_worker(source):
+            try:
+                img = loader.load(source)
+                return extractor.extract(img)
+            except Exception as e:
+                logger.error(f"Error processing {source.path.name}: {e}")
+                return None
 
-    for _, feat in results:
-        if feat is not None:
-            features.append(feat)
+        with ThreadPoolExecutor() as executor:
+            results = list(tqdm(executor.map(thread_worker, sources), total=len(sources), desc="Extracting Features"))
+            features = [f for f in results if f is not None]
     
     features_array = np.array(features)
     labels, centroids = clusterer.cluster(features_array)

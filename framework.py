@@ -157,6 +157,10 @@ class BaseFeatureExtractor(ABC):
         """Extract a feature vector from the image."""
         pass
 
+    def extract_batch(self, images: List[np.ndarray]) -> np.ndarray:
+        """Extract feature vectors for a batch of images. Defaults to sequential extraction."""
+        return np.array([self.extract(img) for img in images])
+
     def get_centroid_name(self, centroid: np.ndarray) -> str:
         """
         Return a human-readable name for the centroid. 
@@ -215,23 +219,18 @@ class AgglomerativeClusterer(BaseClusterer):
 
 # --- Orchestration ---
 
-def process_single_image_worker(args) -> Tuple[ImageSource, Optional[np.ndarray]]:
+def load_image_worker(args) -> Tuple[ImageSource, Optional[np.ndarray]]:
     """
     Worker function for multiprocessing. 
-    args: (image_source, loader_class, loader_params, extractor_class, extractor_params)
+    args: (image_source, loader_class, loader_params)
     """
-    image_source, loader_class, loader_params, extractor_class, extractor_params = args
+    image_source, loader_class, loader_params = args
     try:
-        # Instantiate loader and extractor inside worker to avoid pickling issues
         loader = loader_class(**loader_params)
-        extractor = extractor_class(**extractor_params)
-        
         img = loader.load(image_source)
-        feature_vector = extractor.extract(img)
-        
-        return image_source, feature_vector
+        return image_source, img
     except Exception as e:
-        logger.error(f"Error processing {image_source.path.name}: {e}")
+        logger.error(f"Error loading {image_source.path.name}: {e}")
         return image_source, None
 
 class SortingFramework:
@@ -241,36 +240,34 @@ class SortingFramework:
         self.clusterer = clusterer
 
     def analyze_and_sort(self, sources: List[ImageSource], output_path: Optional[Path], move: bool = False):
-        # 1. Parallel Feature Extraction
+        # 1. Parallel Image Loading
         loader_class = self.loader.__class__
-        extractor_class = self.extractor.__class__
-        
-        # Extract parameters from the instances
         loader_params = getattr(self.loader, '__dict__', {}).copy()
-        extractor_params = getattr(self.extractor, '__dict__', {}).copy()
 
         tasks = []
         for source in sources:
-            tasks.append((source, loader_class, loader_params, extractor_class, extractor_params))
+            tasks.append((source, loader_class, loader_params))
 
-        features = []
+        loaded_images = []
         valid_sources = []
         
         with ProcessPoolExecutor() as executor:
-            results = list(tqdm(executor.map(process_single_image_worker, tasks), total=len(tasks), desc="Analyzing Palettes"))
+            results = list(tqdm(executor.map(load_image_worker, tasks), total=len(tasks), desc="Loading Images"))
 
-        for source, feat in results:
-            if feat is not None:
+        for source, img in results:
+            if img is not None:
                 valid_sources.append(source)
-                features.append(feat)
+                loaded_images.append(img)
             else:
-                tqdm.write(f"Warning: Could not process {source.path.name}")
+                tqdm.write(f"Warning: Could not load {source.path.name}")
 
-        if not features:
-            logger.error("No images could be analyzed.")
+        if not loaded_images:
+            logger.error("No images could be loaded.")
             return None, None
 
-        features_array = np.array(features)
+        # 2. Batch Feature Extraction (Main Process)
+        logger.info(f"Extracting features for {len(loaded_images)} images...")
+        features_array = self.extractor.extract_batch(loaded_images)
 
         # 2. Global Clustering
         logger.info("Clustering images into buckets...")

@@ -5,3 +5,6 @@ scikit-learn
 Pillow
 click
 tqdm
+torch
+torchvision
+sentence-transformers
