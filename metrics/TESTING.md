@@ -8,6 +8,8 @@ The testing system consists of two primary components:
 1. **Test Rig (`test_rig.py`)**: A CLI tool that manages experiment execution, parameter sweeps, and result logging.
 2. **Evaluator (`evaluator.py`)**: The core logic that runs a specific sorter configuration in "headless" mode (without moving files) and calculates quantitative metrics.
 
+The framework is designed to be unbiased, employing **L2 Normalization** of feature vectors and **Eligibility Filtering** to ensure that only runs with a reasonable number of clusters are evaluated.
+
 ## How to Run Tests
 
 The `test_rig.py` script uses the `click` library for its command-line interface.
@@ -45,9 +47,10 @@ The following metrics are collected for every parameter combination:
 
 | Metric | Description | Ideal Value |
 | :--- | :--- | :--- |
-| **Silhouette Score** | Measures how similar an image is to its own cluster compared to other clusters. | Higher (closer to 1.0) |
+| **Silhouette Score** | Measures cohesion: how similar an image is to its own cluster compared to other clusters. | Higher (closer to 1.0) |
+| **Balance Score** | Measures distribution: how evenly images are distributed across clusters. | Higher (closer to 1.0) |
+| **Separation Ratio** | Measures inter-cluster distance: how distinct clusters are from one another. | Higher |
 | **Davies-Bouldin Index** | The average similarity measure of each cluster with its most similar cluster. | Lower (closer to 0.0) |
-| **Balance Std Dev** | The standard deviation of the number of images per cluster. | Lower (indicates more uniform distribution) |
 | **Duration** | Total time taken for feature extraction and clustering. | Lower |
 | **Num Clusters** | The actual number of clusters formed by the algorithm. | Varies by goal |
 | **Images Processed** | Number of images that were successfully analyzed. | Equal to total input images |

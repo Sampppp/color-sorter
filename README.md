@@ -10,6 +10,7 @@ A modular Python tool that automatically organizes images (JPG or RAW) into "buc
 - **Automated Clustering**: Uses K-Means and Agglomerative Clustering to group images with similar palettes or structures.
 - **Modular Architecture**: A decoupled framework separates the sorting logic (feature extraction and clustering) from the image ingestion layer.
 - **High Performance**: Utilizes multiprocessing for parallel image loading and analysis.
+- **Rigorous Evaluation**: Includes a built-in testing suite that uses a rank-based composite scoring system (Borda Count) to objectively determine the best sorting strategy for a given dataset.
 
 ## Prerequisites
 
@@ -45,20 +46,21 @@ To ensure that `.xmp` sidecar edits are fully applied during RAW analysis, it is
 
 The tool provides several specialized sorters, each using a different feature extraction and clustering strategy:
 
-### 1. K-Means Palette Sorter (`k-means_sorter.py`)
+### 1. Exposure Sorter (`exposure_sorter.py`)
+- **Method**: Analyzes the Luminance (L) channel of the LAB color space to calculate mean brightness and standard deviation.
+- **Best For**: Sorting by lighting conditions (e.g., Night, Golden Hour, Daytime, Overexposed).
+- **Note**: Currently the top-performing method for balanced, perceptually useful sorting.
+
+### 2. K-Means Palette Sorter (`k-means_sorter.py`)
 - **Method**: Extracts the top $K$ dominant colors from each image in CIELAB space using MiniBatchKMeans.
 - **Best For**: Grouping images by their primary color schemes (e.g., "all the blue-toned photos").
-- **Feature**: Creates a feature vector of the most frequent dominant colors.
+- **Note**: Provides extreme internal cohesion but can produce imbalanced cluster sizes.
 
-### 2. Histogram Sorter (`histogram_sorter.py`)
+### 3. Histogram Sorter (`histogram_sorter.py`)
 - **Method**: Computes normalized color histograms for Hue, Saturation, and Value (HSV) channels.
 - **Best For**: Grouping images with similar overall color distributions, regardless of where the colors are located.
 - **Feature**: Uses Cosine similarity via Agglomerative Clustering for high-accuracy distribution matching.
 
-### 3. Exposure Sorter (`exposure_sorter.py`)
-- **Method**: Analyzes the Luminance (L) channel of the LAB color space to calculate mean brightness and standard deviation.
-- **Best For**: Sorting by lighting conditions (e.g., Night, Golden Hour, Daytime, Overexposed).
-- **Feature**: Specifically targets exposure and contrast profiles.
 
 ### 4. Perceptual Hash Sorter (`hash_sorter.py`)
 - **Method**: Generates a visual "fingerprint" of the image using one of three hashing algorithms:
@@ -111,6 +113,11 @@ The tool is executed via the command line. It supports a flexible ingestion syst
 
 You can test the different sorting methods using the following commands:
 
+**Sort by lighting/exposure (Recommended):**
+```bash
+python3 exposure_sorter.py --input ./jpg_storage --output-dir ./output_exposure_test -c 20
+```
+
 **Sort by dominant color palettes (K-Means):**
 ```bash
 python3 k-means_sorter.py --input ./jpg_storage --output-dir ./output_k-means_test -k 2
@@ -121,11 +128,6 @@ python3 k-means_sorter.py --input ./jpg_storage --output-dir ./output_k-means_te
 python3 histogram_sorter.py --input ./jpg_storage --output-dir ./output_histogram_test --threshold 0.45
 ```
 
-**Sort by lighting/exposure:**
-```bash
-python3 exposure_sorter.py --input ./jpg_storage --output-dir ./output_exposure_test -c 8
-```
-
 **Sort by visual structure (Perceptual Hashing - pHash):**
 ```bash
 python3 hash_sorter.py --input ./jpg_storage --method phash --output-dir ./output_phash_test --threshold 0.45
@@ -133,4 +135,5 @@ python3 hash_sorter.py --input ./jpg_storage --method phash --output-dir ./outpu
 
 **Sort by composite CV features:**
 ```bash
-python3 cv_feature_sorter.py --input ./jpg_storage --output-dir ./output_cv_test -c 8
+python3 cv_feature_sorter.py --input ./jpg_storage --output-dir ./output_cv_test -c 20
+```
