@@ -4,10 +4,10 @@ import cv2
 import click
 import multiprocessing as mp
 from pathlib import Path
-from sklearn.cluster import AgglomerativeClustering
 from framework import (
     BaseFeatureExtractor, 
     BaseClusterer, 
+    KMeansClusterer,
     common_options,
     run_sorting_pipeline
 )
@@ -72,41 +72,13 @@ class PHashExtractor(BaseFeatureExtractor):
         hash_bits = (low_freq > avg).astype(np.float32).flatten()
         return hash_bits
 
-class HammingClusterer(BaseClusterer):
-    """Clusters images using Hamming Distance via Agglomerative Clustering."""
-    def __init__(self, threshold: float):
-        self.threshold = threshold
-
-    def cluster(self, features: np.ndarray):
-        # AgglomerativeClustering with hamming metric
-        # distance_threshold is used when n_clusters=None
-        model = AgglomerativeClustering(
-            n_clusters=None, 
-            distance_threshold=self.threshold, 
-            metric='hamming', 
-            linkage='average'
-        )
-        labels = model.fit_predict(features)
-        
-        # Calculate centroids manually
-        # For binary hashes, the centroid is the mode (most frequent bit) at each position
-        unique_labels = np.unique(labels)
-        centroids = []
-        for label in unique_labels:
-            cluster_points = features[labels == label]
-            # Compute mode along axis 0
-            centroid = np.mean(cluster_points, axis=0) >= 0.5
-            centroids.append(centroid.astype(np.float32))
-        
-        return labels, np.array(centroids)
-
 # --- CLI Implementation ---
 @click.command()
 @common_options()
 @click.option('--method', type=click.Choice(['ahash', 'dhash', 'phash'], case_sensitive=False), 
               required=True, help='Hashing method to use.')
-@click.option('--threshold', type=float, default=0.1, help='Hamming distance threshold for clustering (0.0 to 1.0).')
-def main(input_dir, output_dir, move, raw, verbose, method, threshold):
+@click.option('--clusters', '-c', default=10, type=int, help='Number of clusters for KMeans.')
+def main(input_dir, output_dir, move, raw, verbose, method, clusters):
     """Sort images based on visual structure using perceptual hashing."""
     
     # Strategy Selection
@@ -118,7 +90,7 @@ def main(input_dir, output_dir, move, raw, verbose, method, threshold):
     else: # phash
         extractor = PHashExtractor()
     
-    clusterer = HammingClusterer(threshold=threshold)
+    clusterer = KMeansClusterer(n_clusters=clusters)
 
     run_sorting_pipeline(
         input_dir=input_dir,

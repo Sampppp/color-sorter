@@ -8,3 +8,6 @@ tqdm
 torch
 torchvision
 sentence-transformers
+pandas
+matplotlib
+seaborn

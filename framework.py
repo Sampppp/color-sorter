@@ -193,29 +193,44 @@ class KMeansClusterer(BaseClusterer):
 
 class AgglomerativeClusterer(BaseClusterer):
     """Clusters images using Agglomerative Clustering."""
-    def __init__(self, threshold: float, metric: str = 'euclidean'):
+    def __init__(self, n_clusters: Optional[int] = None, threshold: Optional[float] = None, metric: str = "euclidean"):
+        self.n_clusters = n_clusters
         self.threshold = threshold
         self.metric = metric
 
     def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        # linkage='ward' only supports euclidean. For other metrics, we use 'average' or 'complete'
-        linkage = 'ward' if self.metric == 'euclidean' else 'average'
         model = AgglomerativeClustering(
-            n_clusters=None, 
-            distance_threshold=self.threshold, 
-            metric=self.metric, 
-            linkage=linkage
+            n_clusters=self.n_clusters,
+            distance_threshold=self.threshold,
+            metric=self.metric,
+            linkage="average" if self.metric == "euclidean" else "complete"
         )
         labels = model.fit_predict(features)
+        unique_labels = np.unique(labels)
+        centroids = [np.mean(features[labels == label], axis=0) for label in unique_labels]
+        return labels, np.array(centroids)
+class HDBSCANClusterer(BaseClusterer):
+    """Clusters images using HDBSCAN."""
+    def __init__(self, min_cluster_size: int = 5):
+        self.min_cluster_size = min_cluster_size
+
+    def cluster(self, features: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        from sklearn.cluster import HDBSCAN
+        model = HDBSCAN(min_cluster_size=self.min_cluster_size)
+        labels = model.fit_predict(features)
         
-        # Calculate centroids manually for AgglomerativeClustering
+        # Calculate centroids manually
         unique_labels = np.unique(labels)
         centroids = []
         for label in unique_labels:
-            cluster_points = features[labels == label]
-            centroids.append(np.mean(cluster_points, axis=0))
+            if label == -1: # Noise in HDBSCAN
+                centroids.append(np.mean(features, axis=0))
+            else:
+                cluster_points = features[labels == label]
+                centroids.append(np.mean(cluster_points, axis=0))
         
         return labels, np.array(centroids)
+
 
 # --- Orchestration ---
 

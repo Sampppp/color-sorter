@@ -128,8 +128,8 @@ import multiprocessing as mp
 @click.command()
 @common_options()
 @click.option('--mode', type=click.Choice(['deep', 'hybrid']), default='deep', help='Feature extraction mode.')
-@click.option('--threshold', type=float, default=0.5, help='Distance threshold for Agglomerative Clustering.')
-def main(input_dir, output_dir, move, raw, verbose, mode, threshold):
+@click.option('--clusters', '-c', default=10, type=int, help='Number of clusters for KMeans.')
+def main(input_dir, output_dir, move, raw, verbose, mode, clusters):
     """Sort images using Deep or Hybrid semantic features."""
     
     if mode == 'deep':
@@ -139,8 +139,8 @@ def main(input_dir, output_dir, move, raw, verbose, mode, threshold):
         extractor = HybridFeatureExtractor()
         title = "Hybrid Embedding Sorting"
     
-    # Use Cosine similarity for embeddings
-    clusterer = AgglomerativeClusterer(threshold=threshold, metric='cosine')
+    # Use KMeans for standardized comparison
+    clusterer = KMeansClusterer(n_clusters=clusters)
     
     run_sorting_pipeline(
         input_dir=input_dir,

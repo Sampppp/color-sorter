@@ -6,7 +6,7 @@ import multiprocessing as mp
 from pathlib import Path
 from framework import (
     BaseFeatureExtractor, 
-    AgglomerativeClusterer,
+    KMeansClusterer,
     MAX_ANALYSIS_SIZE,
     common_options,
     run_sorting_pipeline
@@ -59,15 +59,15 @@ class HistogramExtractor(BaseFeatureExtractor):
 @click.command()
 @common_options()
 @click.option('--bins', '-b', default=DEFAULT_BINS, type=int, help='Number of bins per HSV channel.')
-@click.option('--threshold', type=float, default=0.5, help='Distance threshold for Agglomerative Clustering.')
-def main(input_dir, output_dir, move, raw, verbose, bins, threshold):
+@click.option('--clusters', '-c', default=10, type=int, help='Number of clusters for KMeans.')
+def main(input_dir, output_dir, move, raw, verbose, bins, clusters):
     """Sort images by their overall color distribution using HSV histograms."""
     
     # Strategy Selection
     extractor = HistogramExtractor(bins=bins)
     
-    # Use Cosine similarity for normalized histograms
-    clusterer = AgglomerativeClusterer(threshold=threshold, metric='cosine')
+    # Use KMeans for standardized comparison
+    clusterer = KMeansClusterer(n_clusters=clusters)
 
     run_sorting_pipeline(
         input_dir=input_dir,

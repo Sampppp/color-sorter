@@ -107,9 +107,10 @@ class DistanceMatrixClusterer(BaseClusterer):
     Clusterer that uses a precomputed distance matrix.
     Supports custom metrics like Chi-Square and JS Divergence.
     """
-    def __init__(self, metric: str = "cosine", threshold: float = 0.5):
+    def __init__(self, metric: str = "cosine", threshold: float = 0.5, n_clusters: Optional[int] = None):
         self.metric = metric
         self.threshold = threshold
+        self.n_clusters = n_clusters
 
     def _compute_dist_matrix(self, features: np.ndarray) -> np.ndarray:
         n = features.shape[0]
@@ -141,10 +142,13 @@ class DistanceMatrixClusterer(BaseClusterer):
         dist_matrix = self._compute_dist_matrix(features)
         
         # 2. Agglomerative Clustering with precomputed metric
-        # linkage='average' is generally good for distance matrices
+        # If n_clusters is provided, use it; otherwise use distance_threshold
+        n_clusters = self.n_clusters
+        threshold = self.threshold if n_clusters is None else None
+        
         model = AgglomerativeClustering(
-            n_clusters=None,
-            distance_threshold=self.threshold,
+            n_clusters=n_clusters,
+            distance_threshold=threshold,
             metric='precomputed',
             linkage='average'
         )

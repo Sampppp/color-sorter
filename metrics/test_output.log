@@ -1,0 +1,104 @@
+
+>>> Testing Sorter: k-means
+Running 9 combinations...
+  [1/9] Params: {'k_colors': 2, 'clusters': 5} Done
+  [2/9] Params: {'k_colors': 2, 'clusters': 10} Done
+  [3/9] Params: {'k_colors': 2, 'clusters': 20} Done
+  [4/9] Params: {'k_colors': 3, 'clusters': 5} Done
+  [5/9] Params: {'k_colors': 3, 'clusters': 10} Done
+  [6/9] Params: {'k_colors': 3, 'clusters': 20} Done
+  [7/9] Params: {'k_colors': 5, 'clusters': 5} Done
+  [8/9] Params: {'k_colors': 5, 'clusters': 10} Done
+  [9/9] Params: {'k_colors': 5, 'clusters': 20} Done
+
+>>> Testing Sorter: cv_feature
+Running 3 combinations...
+  [1/3] Params: {'clusters': 5} Done
+  [2/3] Params: {'clusters': 10} Done
+  [3/3] Params: {'clusters': 20} Done
+
+>>> Testing Sorter: exposure
+Running 3 combinations...
+  [1/3] Params: {'clusters': 5} Done
+  [2/3] Params: {'clusters': 10} Done
+  [3/3] Params: {'clusters': 20} Done
+
+>>> Testing Sorter: histogram
+Running 6 combinations...
+  [1/6] Params: {'bins': 8, 'clusters': 5} Done
+  [2/6] Params: {'bins': 8, 'clusters': 10} Done
+  [3/6] Params: {'bins': 8, 'clusters': 20} Done
+  [4/6] Params: {'bins': 16, 'clusters': 5} Done
+  [5/6] Params: {'bins': 16, 'clusters': 10} Done
+  [6/6] Params: {'bins': 16, 'clusters': 20} Done
+
+>>> Testing Sorter: histogram_3d
+Running 6 combinations...
+  [1/6] Params: {'bins': 8, 'clusters': 5} Done
+  [2/6] Params: {'bins': 8, 'clusters': 10} Done
+  [3/6] Params: {'bins': 8, 'clusters': 20} Done
+  [4/6] Params: {'bins': 16, 'clusters': 5} Done
+  [5/6] Params: {'bins': 16, 'clusters': 10} Done
+  [6/6] Params: {'bins': 16, 'clusters': 20} Done
+
+>>> Testing Sorter: hash_ahash
+Running 3 combinations...
+  [1/3] Params: {'clusters': 5} Done
+  [2/3] Params: {'clusters': 10} Done
+  [3/3] Params: {'clusters': 20} Done
+
+>>> Testing Sorter: hash_dhash
+Running 3 combinations...
+  [1/3] Params: {'clusters': 5} Done
+  [2/3] Params: {'clusters': 10} Done
+  [3/3] Params: {'clusters': 20} Done
+
+>>> Testing Sorter: hash_phash
+Running 3 combinations...
+  [1/3] Params: {'clusters': 5} Done
+  [2/3] Params: {'clusters': 10} Done
+  [3/3] Params: {'clusters': 20} Done
+
+>>> Testing Sorter: exp_baseline
+Running 3 combinations...
+  [1/3] Params: {'config': 'baseline', 'metric': 'cosine', 'clusters': 5} Done
+  [2/3] Params: {'config': 'baseline', 'metric': 'cosine', 'clusters': 10} Done
+  [3/3] Params: {'config': 'baseline', 'metric': 'cosine', 'clusters': 20} Done
+
+>>> Testing Sorter: exp_perceptual
+Running 3 combinations...
+  [1/3] Params: {'config': 'perceptual', 'metric': 'chi2', 'clusters': 5} Done
+  [2/3] Params: {'config': 'perceptual', 'metric': 'chi2', 'clusters': 10} Done
+  [3/3] Params: {'config': 'perceptual', 'metric': 'chi2', 'clusters': 20} Done
+
+>>> Testing Sorter: exp_spatial
+Running 3 combinations...
+  [1/3] Params: {'config': 'spatial', 'metric': 'jsd', 'clusters': 5} Done
+  [2/3] Params: {'config': 'spatial', 'metric': 'jsd', 'clusters': 10} Done
+  [3/3] Params: {'config': 'spatial', 'metric': 'jsd', 'clusters': 20} Done
+
+>>> Testing Sorter: deep_embeddings
+Running 3 combinations...
+  [1/3] Params: {'metric': 'cosine', 'clusters': 5} Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 7310.83it/s]
+Done
+  [2/3] Params: {'metric': 'cosine', 'clusters': 10} Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 7226.58it/s]
+Done
+  [3/3] Params: {'metric': 'cosine', 'clusters': 20} Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 5675.63it/s]
+Done
+
+>>> Testing Sorter: hybrid_embeddings
+Running 3 combinations...
+  [1/3] Params: {'metric': 'cosine', 'clusters': 5} Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 6758.79it/s]
+Done
+  [2/3] Params: {'metric': 'cosine', 'clusters': 10} Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 7592.57it/s]
+Done
+  [3/3] Params: {'metric': 'cosine', 'clusters': 20} Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 7663.47it/s]
+Done
+
+Calculating Rank-Based Composite Scores...
+
+Selecting top 3 distinct sorters for visual report...
+Generating visual report for: ['exposure', 'k-means', 'cv_feature']
+
+All experiments complete. Results saved to metrics/results.csv
